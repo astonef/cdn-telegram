@@ -123,3 +123,13 @@ app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 app.add_handler(CallbackQueryHandler(handle_delete_callback, pattern="delete_msg"))
 app.run_polling()
+
+async def handle_ping(request):
+    return web.Response(text="✅ Bot attivo", status=200)
+
+# server HTTP per Render + UptimeRobot
+app_web = web.Application()
+app_web.router.add_get("/ping", handle_ping)
+
+import asyncio
+asyncio.create_task(web._run_app(app_web, port=10000))
