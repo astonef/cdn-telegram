@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: cdn-telegram-bot
+    runtime: python
+    buildCommand: ""
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: GH_TOKEN
+        sync: false
