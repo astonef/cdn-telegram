@@ -75,7 +75,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logging.warning(f"⚠️ Errore cancellazione messaggio: {e}")
 
-        cdn_url = f"https://cdn.statically.io/gh/astonef/fstfd-cdn/core/images/{filename}"
+        cdn_url = f"https://cdn.jsdelivr.net/gh/astonef/fstfd-cdn@core/images/{filename}"
         raw_url = f"https://raw.githubusercontent.com/astonef/fstfd-cdn/core/images/{filename}"
 
         try:
