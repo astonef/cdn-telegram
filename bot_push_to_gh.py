@@ -8,6 +8,7 @@ from push_to_gh import upload_to_github
 from io import BytesIO
 from aiohttp import web
 import asyncio
+import aiohttp
 
 # logging setup
 for handler in logging.root.handlers[:]:
@@ -30,7 +31,6 @@ async def is_url_alive(url: str, retries: int = 3, delay: float = 2) -> bool:
                         return True
         except Exception as e:
             logging.warning(f"⚠️ Tentativo {attempt+1} fallito: {e}")
-        await asyncio.sleep(delay)
     return False
 
 load_dotenv()
@@ -68,7 +68,6 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status, response = upload_to_github(filepath, f"images/{filename}")
-    await asyncio.sleep(2)
 
     if status in [200, 201]:
         logging.info(f"✅ Upload riuscito: {filename}")
@@ -79,21 +78,30 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logging.warning(f"⚠️ Errore cancellazione messaggio: {e}")
 
-        cdn_url = f"https://cdn.jsdelivr.net/gh/astonef/fstfd-cdn@core/images/{filename}"
+        cdn_js = f"https://cdn.jsdelivr.net/gh/astonef/fstfd-cdn@core/images/{filename}"
+        cdn_stat = f"https://cdn.statically.io/gh/astonef/fstfd-cdn/core/images/{filename}"
         raw_url = f"https://raw.githubusercontent.com/astonef/fstfd-cdn/core/images/{filename}"
 
-        try:
-            alive = await is_url_alive(cdn_url, retries=5)
-            logging.debug(f"🌐 CDN online: {alive}")
-        except Exception as e:
-            alive = False
-            logging.warning(f"⚠️ CDN check fallito: {e}")
+        cdn_url = cdn_js
+        alive = await is_url_alive(cdn_url, retries=3)
+        if not alive:
+            logging.warning("❌ jsDelivr fallito, provo Statically")
+            cdn_url = cdn_stat
+            alive = await is_url_alive(cdn_url, retries=2)
 
-        buttons = []
+        link_id = filename.replace(".jpg", "")
+        context.bot_data[link_id] = cdn_url if alive else raw_url
+
+        buttons = [
+            [InlineKeyboardButton("📋 OTTIENI IL LINK IN CHAT", callback_data=f"copy::{link_id}")]
+        ]
+
         if alive:
-            buttons.append([InlineKeyboardButton("🔗 CDN (Statically)", url=cdn_url)])
-        buttons.append([InlineKeyboardButton("🛟 Backup (GitHub Raw)", url=raw_url)])
-        buttons.append([InlineKeyboardButton("🗑️ Elimina messaggio", callback_data="delete_msg")])
+            buttons.insert(0, [InlineKeyboardButton("📡 APRI IMMAGINE NEL BROWSER", url=cdn_url)])
+        else:
+            buttons.insert(0, [InlineKeyboardButton("🛟 Backup (GitHub Raw)", url=raw_url)])
+
+        buttons.append([InlineKeyboardButton("🗑️ ELIMINA MESSAGGIO IN CHAT", callback_data="delete_msg")])
         keyboard = InlineKeyboardMarkup(buttons)
 
         user = update.message.from_user.first_name or "utente"
@@ -124,32 +132,39 @@ async def handle_delete_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     await update.callback_query.answer()
 
+async def handle_copy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = update.callback_query.data
+    if data.startswith("copy::"):
+        link_id = data.replace("copy::", "")
+        url = context.bot_data.get(link_id)
+        if url:
+            await update.callback_query.answer("✅ Link copiabile inviato", show_alert=False)
+            await update.effective_chat.send_message(url)
+        else:
+            await update.callback_query.answer("⚠️ Link non trovato", show_alert=True)
+
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 app.add_handler(CallbackQueryHandler(handle_delete_callback, pattern="delete_msg"))
-
+app.add_handler(CallbackQueryHandler(handle_copy_callback, pattern="^copy::"))
 
 async def handle_ping(request):
     return web.Response(text="✅ Bot attivo", status=200)
 
-# server HTTP per Render + UptimeRobot
 app_web = web.Application()
 app_web.router.add_get("/ping", handle_ping)
 
 async def main():
-    # start Telegram bot
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
 
-    # start ping server
     runner = web.AppRunner(app_web)
     await runner.setup()
     site = web.TCPSite(runner, host="0.0.0.0", port=10000)
     await site.start()
 
-    await asyncio.Event().wait()  # blocca per sempre
-
+    await asyncio.Event().wait()
 
 if __name__ == "__main__":
     asyncio.run(main())
