@@ -21,14 +21,17 @@ logging.basicConfig(
     ]
 )
 
-async def is_url_alive(url: str) -> bool:
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=5) as resp:
-                return resp.status == 200
-    except Exception as e:
-        logging.warning(f"⚠️ CDN check failed: {e}")
-        return False
+async def is_url_alive(url: str, retries: int = 3, delay: float = 2) -> bool:
+    for attempt in range(retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=5) as resp:
+                    if resp.status == 200:
+                        return True
+        except Exception as e:
+            logging.warning(f"⚠️ Tentativo {attempt+1} fallito: {e}")
+        await asyncio.sleep(delay)
+    return False
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -65,6 +68,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     status, response = upload_to_github(filepath, f"images/{filename}")
+    await asyncio.sleep(2)
 
     if status in [200, 201]:
         logging.info(f"✅ Upload riuscito: {filename}")
@@ -79,7 +83,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         raw_url = f"https://raw.githubusercontent.com/astonef/fstfd-cdn/core/images/{filename}"
 
         try:
-            alive = await is_url_alive(cdn_url)
+            alive = await is_url_alive(cdn_url, retries=5)
             logging.debug(f"🌐 CDN online: {alive}")
         except Exception as e:
             alive = False
