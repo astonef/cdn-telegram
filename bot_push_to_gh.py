@@ -133,16 +133,19 @@ app_web = web.Application()
 app_web.router.add_get("/ping", handle_ping)
 
 async def main():
-    # start bot
-    bot_task = asyncio.create_task(app.run_polling())
+    # start Telegram bot
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
 
     # start ping server
     runner = web.AppRunner(app_web)
     await runner.setup()
-    site = web.TCPSite(runner, port=10000)
+    site = web.TCPSite(runner, host="0.0.0.0", port=10000)
     await site.start()
 
-    await bot_task  # blocca qui
+    await asyncio.Event().wait()  # blocca per sempre
+
 
 if __name__ == "__main__":
     asyncio.run(main())
