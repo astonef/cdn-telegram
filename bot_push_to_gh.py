@@ -6,7 +6,8 @@ from telegram.ext import ApplicationBuilder, MessageHandler, CallbackQueryHandle
 from dotenv import load_dotenv
 from push_to_gh import upload_to_github
 from io import BytesIO
-import aiohttp
+from aiohttp import web
+import asyncio
 
 # logging setup
 for handler in logging.root.handlers[:]:
@@ -122,7 +123,7 @@ async def handle_delete_callback(update: Update, context: ContextTypes.DEFAULT_T
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 app.add_handler(CallbackQueryHandler(handle_delete_callback, pattern="delete_msg"))
-app.run_polling()
+
 
 async def handle_ping(request):
     return web.Response(text="✅ Bot attivo", status=200)
@@ -131,5 +132,17 @@ async def handle_ping(request):
 app_web = web.Application()
 app_web.router.add_get("/ping", handle_ping)
 
-import asyncio
-asyncio.create_task(web._run_app(app_web, port=10000))
+async def main():
+    # start bot
+    bot_task = asyncio.create_task(app.run_polling())
+
+    # start ping server
+    runner = web.AppRunner(app_web)
+    await runner.setup()
+    site = web.TCPSite(runner, port=10000)
+    await site.start()
+
+    await bot_task  # blocca qui
+
+if __name__ == "__main__":
+    asyncio.run(main())
