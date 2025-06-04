@@ -7,13 +7,14 @@ from telegram.ext import CommandHandler
 from dotenv import load_dotenv
 from push_to_gh import upload_to_github
 from handler_start_user_id import handle_start
+from auth import is_authorized
 from io import BytesIO
 from aiohttp import web
 import asyncio
 import aiohttp
 
 
-app.add_handler(CommandHandler("start", handle_start))
+
 
 # logging setup
 for handler in logging.root.handlers[:]:
@@ -42,6 +43,10 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_authorized(update.message.from_user.id):
+        await update.message.reply_text("⛔ Non sei autorizzato a usare questo bot")
+        return
+
     logging.debug("📨 Messaggio ricevuto")
 
     if update.message.caption:
@@ -149,9 +154,13 @@ async def handle_copy_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.callback_query.answer("⚠️ Link non trovato", show_alert=True)
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
+app.add_handler(CommandHandler("mio_id", handle_start))
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
 app.add_handler(CallbackQueryHandler(handle_delete_callback, pattern="delete_msg"))
 app.add_handler(CallbackQueryHandler(handle_copy_callback, pattern="^copy::"))
+
+
+
 
 async def handle_ping(request):
     return web.Response(text="✅ Bot attivo", status=200)
