@@ -3,12 +3,17 @@ import logging
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from telegram.ext import CommandHandler
 from dotenv import load_dotenv
 from push_to_gh import upload_to_github
+from handler_start_user_id import handle_start
 from io import BytesIO
 from aiohttp import web
 import asyncio
 import aiohttp
+
+
+app.add_handler(CommandHandler("start", handle_start))
 
 # logging setup
 for handler in logging.root.handlers[:]:
