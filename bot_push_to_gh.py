@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from push_to_gh import upload_to_github
 from handler_start_user_id import handle_start
 from auth import is_authorized
+from handler_video import handle_video
 from io import BytesIO
 from aiohttp import web
 import asyncio
@@ -156,6 +157,8 @@ async def handle_copy_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(CommandHandler("mio_id", handle_start))
 app.add_handler(MessageHandler(filters.PHOTO, handle_image))
+app.add_handler(MessageHandler(filters.VIDEO, handle_video))
+app.add_handler(MessageHandler(filters.Document.VIDEO, handle_video))
 app.add_handler(CallbackQueryHandler(handle_delete_callback, pattern="delete_msg"))
 app.add_handler(CallbackQueryHandler(handle_copy_callback, pattern="^copy::"))
 
