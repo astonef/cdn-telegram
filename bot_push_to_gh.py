@@ -9,6 +9,7 @@ from push_to_gh import upload_to_github
 from handler_start_user_id import handle_start
 from auth import is_authorized
 from handler_video import handle_video
+from utils import is_url_alive
 from io import BytesIO
 from aiohttp import web
 import asyncio
@@ -28,17 +29,6 @@ logging.basicConfig(
         logging.FileHandler("cdn-telegram_debug.log", mode="a", encoding="utf-8"),
     ]
 )
-
-async def is_url_alive(url: str, retries: int = 3, delay: float = 2) -> bool:
-    for attempt in range(retries):
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=5) as resp:
-                    if resp.status == 200:
-                        return True
-        except Exception as e:
-            logging.warning(f"⚠️ Tentativo {attempt+1} fallito: {e}")
-    return False
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -99,6 +89,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logging.warning("❌ jsDelivr fallito, provo Statically")
             cdn_url = cdn_stat
             alive = await is_url_alive(cdn_url, retries=2)
+
 
         link_id = filename.replace(".jpg", "")
         context.bot_data[link_id] = cdn_url if alive else raw_url
